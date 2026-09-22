@@ -1,0 +1,8 @@
+sentence-transformers
+faiss-cpu
+rank-bm25
+tqdm
+pandas
+numpy
+google-genai
+python-dotenv
