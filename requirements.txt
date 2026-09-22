@@ -2,7 +2,10 @@ sentence-transformers
 faiss-cpu
 rank-bm25
 tqdm
-pandas
 numpy
 google-genai
-python-dotenv
+python-dotenv>=1.0
+pandas>=2.0
+rapidfuzz>=3.0
+pyTigerGraph>=1.8
+groq>=0.30
