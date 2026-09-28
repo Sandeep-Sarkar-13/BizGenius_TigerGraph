@@ -1,0 +1,130 @@
+/* ============================================================
+   MENTAT GLOBAL STYLING
+   ============================================================ */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: #F5F7FB;
+}
+
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+
+#question-input:focus {
+    border-color: #3157D5 !important;
+
+    box-shadow:
+        0 0 0 3px rgba(49, 87, 213, 0.10);
+
+    outline: none;
+}
+
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+#investigate-button {
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+#investigate-button:hover {
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 8px 20px rgba(49, 87, 213, 0.30) !important;
+}
+
+
+.example-button {
+
+    border: 1px solid #E2E8F0;
+
+    background: #FFFFFF;
+
+    color: #475569;
+
+    border-radius: 999px;
+
+    padding: 7px 12px;
+
+    font-size: 11px;
+
+    cursor: pointer;
+
+    transition:
+        all 0.15s ease;
+}
+
+
+.example-button:hover {
+
+    background: #EEF2FF;
+
+    color: #3157D5;
+
+    border-color: #C7D2FE;
+
+}
+
+
+/* ============================================================
+   LINKS
+   ============================================================ */
+
+a {
+
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+
+a:hover {
+
+    transform: translateY(-2px);
+
+    box-shadow:
+        0 8px 22px rgba(15, 23, 42, 0.08) !important;
+}
+
+
+/* ============================================================
+   RESPONSIVE DESIGN
+   ============================================================ */
+
+@media (max-width: 1100px) {
+
+    .pipeline-grid {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+
+@media (max-width: 900px) {
+
+    #question-input {
+        width: 100%;
+    }
+
+}
+
+
+@media (max-width: 700px) {
+
+    body {
+        font-size: 14px;
+    }
+
+}
