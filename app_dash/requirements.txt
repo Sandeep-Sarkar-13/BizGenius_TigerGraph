@@ -1,0 +1,11 @@
+dash
+python-dotenv
+pandas
+numpy
+faiss-cpu
+sentence-transformers
+rank-bm25
+rapidfuzz
+google-genai
+pyTigerGraph
+groq
