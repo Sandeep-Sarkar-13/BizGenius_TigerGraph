@@ -3,32 +3,32 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 import pandas as pd
 from rapidfuzz import fuzz
-from groq import Groq
+from google import genai
+from google.genai import types
 from pyTigerGraph import TigerGraphConnection
 
-# ============================================================
 # CONFIGURATION
-# ============================================================
-# This is the TigerGraph Cloud instance used by the existing
-# Olympic_GraphRAG setup. Override TG_HOST in .env if needed.
+
 TG_HOST = os.getenv(
     "TG_HOST",
     "https://tg-c65a7a6e-8a3b-4f80-9678-04eb00845868.tg-2635877100.i.tgcloud.io",
 )
 TG_GRAPH = os.getenv("TG_GRAPH", "Olympic_GraphRAG")
 TG_SECRET = os.getenv("TG_SECRET", "")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv(
+    "GEMINI_MODEL",
+    "gemini-3.6-flash"
+)
 CORPUS_PATH = os.getenv("CORPUS_PATH", "./data/corpus.jsonl")
-MAX_STEPS = int(os.getenv("TRACE_MAX_STEPS", "6"))
+MAX_STEPS = int(os.getenv("TRACE_MAX_STEPS", "4"))
 
-# ============================================================
 # VALIDATION / CONNECTIONS
-# ============================================================
 def require_config():
     missing = []
     if not TG_SECRET: missing.append("TG_SECRET")
-    if not GROQ_API_KEY: missing.append("GROQ_API_KEY")
+    if not GEMINI_API_KEY:
+        missing.append("GEMINI_API_KEY")
     if missing:
         raise RuntimeError("Missing environment variables: " + ", ".join(missing))
     if not os.path.exists(CORPUS_PATH):
@@ -41,12 +41,12 @@ conn = TigerGraphConnection(host=TG_HOST, graphname=TG_GRAPH, gsqlSecret=TG_SECR
 conn.getToken(TG_SECRET)
 print(f"TigerGraph: connected | graph={TG_GRAPH}")
 
-print(f"Initializing Groq | model={GROQ_MODEL}")
-groq_client = Groq(api_key=GROQ_API_KEY)
+print(f"Initializing Gemini | model={GEMINI_MODEL}")
+gemini_client = genai.Client(
+    api_key=GEMINI_API_KEY
+)
 
-# ============================================================
 # CORPUS
-# ============================================================
 def load_corpus(path: str) -> pd.DataFrame:
     rows = []
     with open(path, "r", encoding="utf-8") as f:
@@ -66,9 +66,7 @@ corpus_df = load_corpus(CORPUS_PATH)
 corpus_lookup = {str(r["doc_id"]): r.to_dict() for _, r in corpus_df.iterrows()}
 print(f"Corpus loaded: {len(corpus_df):,} documents")
 
-# ============================================================
 # EVENT INDEX
-# ============================================================
 def normalize_text(x: Any) -> str:
     x = str(x or "").replace("–", "-").replace("—", "-").replace("−", "-")
     x = re.sub(r"\s+", " ", x)
@@ -119,9 +117,7 @@ def parse_event_row(row: Dict[str, Any]) -> Dict[str, Any]:
 event_index_df = pd.DataFrame([parse_event_row(r) for r in corpus_lookup.values()])
 print(f"Event index: {len(event_index_df):,} candidate documents")
 
-# ============================================================
 # TIGERGRAPH TOOLS
-# ============================================================
 def search_graph_event(event_id: str) -> Dict[str, Any]:
     try:
         return {
@@ -153,9 +149,7 @@ def inspect_source_document(doc_id: str) -> Dict[str, Any]:
         return {"success": False, "tool": "inspect_source_document", "doc_id": str(doc_id), "error": "Document not found."}
     return {"success": True, "tool": "inspect_source_document", "doc_id": str(doc_id), **row}
 
-# ============================================================
 # EVENT DISCOVERY / INVESTIGATION
-# ============================================================
 def discover_event(question: str) -> Dict[str, Any]:
     q = normalize_text(question)
     candidates = event_index_df.copy()
@@ -208,9 +202,7 @@ def investigate_event_candidates(question: str, candidates: List[Dict[str, Any]]
     out.sort(key=lambda x:(x.get("evidence_score",0),x.get("date_score",0),x.get("venue_score",0)), reverse=True)
     return {"success": True, "tool":"investigate_event_candidates", "results":out, "best_candidate": out[0] if out else None}
 
-# ============================================================
 # SPECIALIZED DETERMINISTIC TOOLS
-# ============================================================
 def lookup_event_fact(question: str, event_id: str = "") -> Dict[str, Any]:
     if event_id:
         if not event_id.startswith("event_"):
@@ -308,9 +300,7 @@ def find_event_extreme(question: str) -> Dict[str, Any]:
     best=max(vals,key=lambda x:x["competitors"]) if "lowest" not in q and "fewest" not in q and "minimum" not in q else min(vals,key=lambda x:x["competitors"])
     return {"success":True,"tool":"find_event_extreme","answer":best["title"],"event":best,"extreme_value":best["competitors"]}
 
-# ============================================================
 # TRACE STATE
-# ============================================================
 @dataclass
 class TraceState:
     question: str
@@ -384,9 +374,7 @@ def evaluate(state):
     if q=="superlative": return {"status":"SUFFICIENT","next_action":"STOP"} if has_tool(state,"find_event_extreme") else {"status":"INSUFFICIENT","next_action":"find_event_extreme"}
     return {"status":"INSUFFICIENT","next_action":"discover_event"}
 
-# ============================================================
-# GROQ PLANNER
-# ============================================================
+# Gemini PLANNER
 TOOLS = {
     "lookup_event_fact":"Retrieve source evidence for a specific event.",
     "resolve_temporal_edition":"Resolve the relevant Olympic edition.",
@@ -400,35 +388,153 @@ TOOLS = {
     "inspect_source_document":"Retrieve the source document text.",
 }
 
-def groq_plan(state: TraceState) -> Dict[str,str]:
-    ev=evaluate(state)
-    if ev["status"] in {"INSUFFICIENT","ESCALATE_TO_GRAPHRAG","ESCALATE_TO_SOURCE"}:
-        # The evaluator is authoritative for the evidence gap.
-        # Groq is still used for the agentic decision when there is a choice.
-        if state.question_type in {"multi_hop","lookup"} and ev["next_action"] in {"discover_event","investigate_event_candidates","search_graph_event","lookup_event_fact"}:
-            mandatory=ev["next_action"]
-        elif state.question_type in {"temporal"}:
-            mandatory=ev["next_action"]
-        else:
-            mandatory=ev["next_action"]
-    else:
-        return {"action":"STOP","target":"","reason":"Evidence is sufficient."}
-    prompt=f"""You are the TRACE investigation planner. Choose ONE next action only. Do not answer the user.\nQuestion: {state.question}\nType: {state.question_type}\nComplexity: {state.complexity}\nCurrent evidence: {json.dumps(state.evidence[-5:],default=str)[:7000]}\nGraph evidence: {json.dumps(state.graph_evidence[-5:],default=str)[:4000]}\nEvaluator-required action: {mandatory}\nTools: {json.dumps(TOOLS)}\nRules: do not repeat an action without new evidence; use graph verification for relational multi-hop questions; use source text for factual answers; return JSON only.\n{{\"action\":\"...\",\"target\":\"\",\"reason\":\"...\"}}"""
-    try:
-        r=groq_client.chat.completions.create(model=GROQ_MODEL,messages=[{"role":"system","content":"Return valid JSON only."},{"role":"user","content":prompt}],temperature=0,max_tokens=300)
-        txt=r.choices[0].message.content.strip(); m=re.search(r"\{.*\}",txt,re.S); data=json.loads(m.group(0)) if m else {}
-        action=data.get("action",mandatory); target=str(data.get("target","") or "")
-        if action not in set(TOOLS)|{"STOP"}: action=mandatory
-        # Never let Groq override a mandatory evidence transition.
-        if mandatory and mandatory not in {"STOP"} and action not in {mandatory}:
-            action=mandatory
-        return {"action":action,"target":target,"reason":data.get("reason","")}
-    except Exception as e:
-        return {"action":mandatory,"target":"","reason":f"Groq planner fallback: {e}"}
+def gemini_plan(state: TraceState) -> Dict[str, str]:
 
-# ============================================================
+    ev = evaluate(state)
+
+    # Deterministic path
+    
+    if ev["status"] == "SUFFICIENT":
+        return {
+            "action": "STOP",
+            "target": "",
+            "reason": "Evidence is sufficient."
+        }
+
+    mandatory = ev["next_action"]
+
+    # These transitions are deterministic.
+    deterministic_actions = {
+        "aggregate_events",
+        "find_event_extreme",
+        "resolve_temporal_edition",
+        "resolve_temporal_event",
+        "lookup_event_fact",
+        "discover_event",
+        "investigate_event_candidates",
+        "search_graph_event",
+        "search_graph_document",
+        "inspect_source_document"
+    }
+
+    # For deterministic evidence transitions, avoid unnecessary Gemini calls.
+    if mandatory in deterministic_actions:
+
+        return {
+            "action": mandatory,
+            "target": "",
+            "reason": "Deterministic evidence transition."
+        }
+
+   # Gemini planning is used only when needed
+   
+    recent_evidence = []
+
+    for item in state.evidence[-2:]:
+
+        result = item.get("result", {})
+
+        if isinstance(result, dict):
+
+            recent_evidence.append({
+                "tool": item.get("tool"),
+                "success": result.get("success"),
+                "event_id": result.get("event_id"),
+                "doc_id": result.get("doc_id"),
+                "reason": result.get("reason"),
+            })
+
+    compact_state = {
+        "question": state.question,
+        "type": state.question_type,
+        "complexity": state.complexity,
+        "required_action": mandatory,
+        "recent_evidence": recent_evidence,
+        "selected_event": selected_event(state)
+    }
+
+    prompt = f"""
+You are a lightweight investigation planner.
+
+Choose ONE action.
+
+Question:
+{state.question}
+
+State:
+{json.dumps(compact_state, ensure_ascii=False)}
+
+Allowed actions:
+discover_event,
+investigate_event_candidates,
+search_graph_event,
+search_graph_document,
+inspect_source_document,
+lookup_event_fact,
+resolve_temporal_edition,
+resolve_temporal_event,
+aggregate_events,
+find_event_extreme,
+STOP
+
+Required action:
+{mandatory}
+
+Return ONLY JSON:
+{{"action":"ACTION","target":"","reason":"brief"}}
+"""
+
+    try:
+
+        response = gemini_client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0,
+                max_output_tokens=80,
+                response_mime_type="application/json"
+            )
+        )
+
+        text = (response.text or "").strip()
+
+        data = json.loads(text)
+
+        action = data.get(
+            "action",
+            mandatory
+        )
+
+        target = str(
+            data.get("target", "") or ""
+        )
+
+        # Safety: never allow Gemini to violate
+        # the deterministic evaluator.
+        if action != mandatory:
+            action = mandatory
+
+        return {
+            "action": action,
+            "target": target,
+            "reason": data.get(
+                "reason",
+                ""
+            )
+        }
+
+    except Exception as e:
+
+        return {
+            "action": mandatory,
+            "target": "",
+            "reason": (
+                "Gemini planner fallback: "
+                + str(e)
+            )
+        }
+    
 # TARGET RESOLUTION
-# ============================================================
 def resolve_target(state, action, target=""):
     if target: return target
     if action=="lookup_event_fact":
@@ -449,9 +555,7 @@ def resolve_target(state, action, target=""):
             if r.get("doc_id"): return str(r["doc_id"])
     return ""
 
-# ============================================================
 # TOOL EXECUTION
-# ============================================================
 def execute(action, question, target=""):
     if action=="discover_event": return discover_event(question)
     if action=="investigate_event_candidates":
@@ -467,32 +571,189 @@ def execute(action, question, target=""):
     if action=="find_event_extreme": return find_event_extreme(question)
     return {"success":False,"error":f"Unknown action: {action}"}
 
-# ============================================================
 # FINAL ANSWER
-# ============================================================
-def generate_final_answer(question: str, state: TraceState) -> str:
-    # Deterministic answers are returned directly where possible.
-    for x in reversed(state.evidence):
-        r=x.get("result",{})
-        if x.get("tool") in {"aggregate_events","find_event_extreme"} and r.get("success"):
-            return str(r.get("answer"))
-    source=None; graph=[]
-    for x in reversed(state.evidence):
-        r=x.get("result",{})
-        if x.get("tool")=="lookup_event_fact" and r.get("success"):
-            source=r.get("source"); break
-        if x.get("tool")=="inspect_source_document" and r.get("success"):
-            source=r; break
-    graph=state.graph_evidence[-3:]
-    if not source: return "Evidence was insufficient to produce a grounded answer."
-    text=str(source.get("text", ""))
-    prompt=f"""Answer the user's question using ONLY the supplied source and graph evidence. Give the direct answer first. Do not invent facts.\nQUESTION:\n{question}\nSOURCE:\n{text[:8000]}\nGRAPH:\n{json.dumps(graph,default=str)[:5000]}"""
-    r=groq_client.chat.completions.create(model=GROQ_MODEL,messages=[{"role":"user","content":prompt}],temperature=0,max_tokens=300)
-    return r.choices[0].message.content.strip()
+def generate_final_answer(
+    question: str,
+    state: TraceState
+) -> str:
 
-# ============================================================
+    # Deterministic answers
+    
+    for x in reversed(state.evidence):
+
+        r = x.get("result", {})
+
+        if (
+            x.get("tool")
+            in {
+                "aggregate_events",
+                "find_event_extreme"
+            }
+            and r.get("success")
+        ):
+
+            return str(
+                r.get("answer")
+            )
+
+    # Find source evidence
+  
+    source = None
+
+    for x in reversed(state.evidence):
+
+        r = x.get("result", {})
+
+        if (
+            x.get("tool")
+            == "lookup_event_fact"
+            and r.get("success")
+        ):
+
+            source = r.get("source")
+            break
+
+        if (
+            x.get("tool")
+            == "inspect_source_document"
+            and r.get("success")
+        ):
+
+            source = r
+            break
+
+    if not source:
+
+        return (
+            "Evidence was insufficient "
+            "to produce a grounded answer."
+        )
+
+    # Compact source context
+    raw_text = str(
+        source.get("text", "")
+    )
+
+    # Keep only the most useful factual lines.
+    lines = []
+
+    keywords = [
+        "gold",
+        "winner",
+        "won",
+        "host",
+        "venue",
+        "date",
+        "games",
+        "competitors",
+        "medal",
+        "event"
+    ]
+
+    for line in raw_text.splitlines():
+
+        line_clean = line.strip()
+
+        if not line_clean:
+            continue
+
+        lower = line_clean.lower()
+
+        if any(
+            keyword in lower
+            for keyword in keywords
+        ):
+
+            lines.append(
+                line_clean
+            )
+
+        if len(lines) >= 35:
+            break
+
+    # Fallback if structured lines were not found.
+    if not lines:
+
+        compact_source = raw_text[:3500]
+
+    else:
+
+        compact_source = "\n".join(
+            lines
+        )[:3500]
+
+    # Compact graph context
+    
+    graph = []
+
+    for item in state.graph_evidence[-2:]:
+
+        if isinstance(item, dict):
+
+            graph.append({
+                "tool": item.get("tool"),
+                "event_id": item.get("event_id"),
+                "doc_id": item.get("doc_id"),
+                "games": item.get("games"),
+                "locations": item.get("locations")
+            })
+
+    graph_context = json.dumps(
+        graph,
+        ensure_ascii=False,
+        default=str
+    )[:1800]
+
+    # Final Gemini call
+    
+    prompt = f"""
+Answer the question using ONLY the supplied evidence.
+
+Return ONLY the final answer.
+
+Rules:
+- No reasoning.
+- No evidence list.
+- No [E1] citations.
+- No explanation.
+- No mention of the system.
+- Be concise.
+- Do not invent facts.
+
+QUESTION:
+{question}
+
+SOURCE:
+{compact_source}
+
+GRAPH:
+{graph_context}
+
+FINAL ANSWER:
+"""
+
+    try:
+
+        response = gemini_client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0,
+                max_output_tokens=80
+            )
+        )
+
+        return (
+            response.text or ""
+        ).strip()
+
+    except Exception:
+
+        return (
+            "Evidence was insufficient "
+            "to generate the final answer."
+        )
 # MAIN AGENT
-# ============================================================
 def trace_run(question: str, max_steps: int = MAX_STEPS) -> Dict[str,Any]:
     state=create_state(question)
     execution=[]
@@ -501,7 +762,7 @@ def trace_run(question: str, max_steps: int = MAX_STEPS) -> Dict[str,Any]:
         ev=evaluate(state)
         if ev["status"]=="SUFFICIENT":
             state.finished=True; state.current_stage="VERIFIED"; break
-        decision=groq_plan(state)
+        decision=gemini_plan(state)
         action=decision.get("action",""); target=decision.get("target","")
         if action=="STOP":
             state.current_stage="STOPPED"; state.stop_reason=decision.get("reason","Planner stopped."); break
@@ -522,11 +783,9 @@ def trace_run(question: str, max_steps: int = MAX_STEPS) -> Dict[str,Any]:
     final=generate_final_answer(question,state) if state.finished else None
     return {"final_answer":final,"question_type":state.question_type,"initial_route":state.initial_route,"finished":state.finished,"final_stage":state.current_stage,"tool_history":state.tool_history,"execution_log":execution,"stop_reason":state.stop_reason}
 
-# ============================================================
 # CLI
-# ============================================================
 if __name__ == "__main__":
-    parser=argparse.ArgumentParser(description="TRACE Agentic GraphRAG using Groq + TigerGraph Cloud")
+    parser=argparse.ArgumentParser(description="TRACE Agentic GraphRAG using Gemini 3.6 Flash + TigerGraph Cloud")
     parser.add_argument("question", nargs="?", help="Question to answer")
     parser.add_argument("--max-steps", type=int, default=MAX_STEPS)
     args=parser.parse_args()
