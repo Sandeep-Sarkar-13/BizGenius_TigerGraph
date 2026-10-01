@@ -1,8 +1,6 @@
-# ============================================================
 # MENTAT
 # Multi-agent Evidence & Neural Thinking for Analysis & Truth
 # Main Dash Application
-# ============================================================
 
 import os
 
@@ -30,6 +28,9 @@ load_dotenv()
 
 _pipeline_cache = {}
 
+PRELOAD_RAG = os.getenv("MENTAT_PRELOAD_RAG", "1").lower() in {
+    "1", "true", "yes", "on"
+}
 
 def load_pipeline(name):
 
@@ -37,8 +38,15 @@ def load_pipeline(name):
         return _pipeline_cache[name]
 
     if name == "RAG":
-        module = importlib.import_module("final_rag")
 
+        module = importlib.import_module(
+            "final_rag"
+        )
+
+        print(
+            "\n[MENTAT] Loaded RAG from:",
+            module.__file__
+        )
     elif name == "GraphRAG":
         module = importlib.import_module("final_graphrag")
 
@@ -53,6 +61,22 @@ def load_pipeline(name):
     _pipeline_cache[name] = module
 
     return module
+
+# RAG STARTUP WARM-UP
+
+def warm_up_rag():
+    if not PRELOAD_RAG:
+        return
+
+    print("\n[MENTAT] Preloading RAG-v2...")
+    rag_module = load_pipeline("RAG")
+
+    if hasattr(rag_module, "initialize_rag"):
+        rag_module.initialize_rag()
+
+    print("[MENTAT] RAG-v2 ready.\n")
+
+warm_up_rag()
 
 # MENTAT QUESTION ANALYZER
 
@@ -277,7 +301,7 @@ def execute_pipeline(
 
         result = module.trace_run(
             question,
-            max_steps=6
+            max_steps=4
         )
 
         elapsed = (
@@ -299,7 +323,8 @@ def execute_pipeline(
 
 def is_sufficient(
     pipeline,
-    result
+    result,
+    analysis=None
 ):
 
     if not isinstance(
@@ -309,7 +334,7 @@ def is_sufficient(
         return False
 
     # RAG
-
+    
     if pipeline == "RAG":
 
         answer = result.get(
@@ -328,33 +353,61 @@ def is_sufficient(
             "insufficient evidence",
             "could not find",
             "not enough evidence",
-            "unable to answer"
+            "unable to answer",
+            "unable to compute"
         ]
 
-        return not any(
+        if any(
             term in answer_text
             for term in failure_terms
-        )
+        ):
+            return False
 
-    # GraphRAG
+        # IMPORTANT:
+        # Multi-hop questions MUST be verified by GraphRAG.
+        
+        if analysis:
 
+            if analysis.get(
+                "question_type"
+            ) == "multi_hop":
+
+                return False
+
+        return True
+
+    # GRAPHRAG
+    
     if pipeline == "GraphRAG":
 
         return (
             result.get("status")
             == "success"
-            and bool(result.get("answer"))
-            and bool(result.get("event"))
-            and bool(result.get("source_document"))
+            and bool(
+                result.get("answer")
+            )
+            and bool(
+                result.get("event")
+            )
+            and bool(
+                result.get("source_document")
+            )
         )
 
-    # Agentic GraphRAG
-
+    # AGENTIC GRAPHRAG
+    
     if pipeline == "Agentic GraphRAG":
 
         return (
-            result.get("finished", False)
-            and bool(result.get("final_answer"))
+            result.get(
+                "finished",
+                False
+            )
+            and bool(
+                result.get(
+                    "final_answer"
+                )
+            )
         )
 
     return False
@@ -397,7 +450,8 @@ def mentat_execute(
                 "SUFFICIENT"
                 if is_sufficient(
                     pipeline,
-                    first_result
+                    first_result,
+                    analysis
                 )
                 else "INSUFFICIENT"
             ),
@@ -411,7 +465,8 @@ def mentat_execute(
 
     if is_sufficient(
         pipeline,
-        first_result
+        first_result,
+        analysis
     ):
 
         return {
@@ -446,7 +501,8 @@ def mentat_execute(
                     "SUFFICIENT"
                     if is_sufficient(
                         "GraphRAG",
-                        graph_result
+                        graph_result,
+                        analysis
                     )
                     else "INSUFFICIENT"
                 ),
@@ -458,7 +514,8 @@ def mentat_execute(
 
         if is_sufficient(
             "GraphRAG",
-            graph_result
+            graph_result,
+            analysis
         ):
 
             return {
@@ -495,7 +552,8 @@ def mentat_execute(
                 "SUFFICIENT"
                 if is_sufficient(
                     "Agentic GraphRAG",
-                    agent_result
+                    agent_result,
+                    analysis
                 )
                 else "INSUFFICIENT"
             ),
@@ -728,9 +786,7 @@ def create_intro():
     )
 
 
-# ============================================================
 # PIPELINE CARD
-# ============================================================
 
 def pipeline_card(
     title,
@@ -846,7 +902,7 @@ def create_pipeline_section():
                 "Agentic GraphRAG",
                 "ADAPTIVE INVESTIGATION",
                 (
-                    "Groq-powered planning, specialized tools, "
+                    "Gemini-powered planning, specialized tools, "
                     "multi-hop investigation, evidence evaluation, "
                     "and adaptive re-planning."
                 ),
@@ -1775,55 +1831,330 @@ def investigate(
                 "hybrid_rag"
             )
 
-            evidence_items.append(
-                html.Div(
-                    [
-                        html.Div(
-                            "Retrieval Method",
-                            style={
-                                "fontSize": "10px",
-                                "fontWeight": "800",
-                                "color": COLORS["muted"],
-                            },
-                        ),
-
-                        html.Div(
-                            method,
-                            style={
-                                "fontSize": "13px",
-                                "fontWeight": "700",
-                                "color": COLORS["text"],
-                                "marginTop": "3px",
-                            },
-                        ),
-                    ],
-                    style={
-                        "marginBottom": "14px"
-                    },
-                )
-            )
-
             rag_data = rag_result.get(
                 "result",
                 {}
             )
 
-            evidence_count = len(
-                rag_data.get(
-                    "expanded_context",
-                    []
-                )
-            )
+            # STRUCTURED AGGREGATION EVIDENCE
+            
+            if method == "structured_aggregation":
 
-            evidence_items.append(
-                html.Div(
-                    f"{evidence_count} retrieved evidence units",
-                    style={
-                        "fontSize": "12px",
-                        "color": COLORS["muted"],
-                    },
+                parsed = rag_data.get(
+                    "parsed",
+                    {}
                 )
-            )
+
+                matching_documents = rag_data.get(
+                    "matching_documents"
+                )
+
+                # Retrieval method
+                
+                evidence_items.append(
+                    html.Div(
+                        [
+                            html.Div(
+                                "RETRIEVAL METHOD",
+                                style={
+                                    "fontSize": "10px",
+                                    "fontWeight": "800",
+                                    "color": COLORS["muted"],
+                                },
+                            ),
+
+                            html.Div(
+                                "Structured Aggregation",
+                                style={
+                                    "fontSize": "13px",
+                                    "fontWeight": "700",
+                                    "color": COLORS["text"],
+                                    "marginTop": "3px",
+                                },
+                            ),
+                        ],
+                        style={
+                            "marginBottom": "14px"
+                        },
+                    )
+                )
+
+                # Parsed condition
+                
+                operator = parsed.get(
+                    "operator",
+                    "?"
+                )
+
+                threshold = parsed.get(
+                    "threshold",
+                    "?"
+                )
+
+                sport = parsed.get(
+                    "sport",
+                    "?"
+                )
+
+                year = parsed.get(
+                    "year",
+                    "?"
+                )
+
+                season = parsed.get(
+                    "season",
+                    "?"
+                )
+
+                condition_text = (
+                    f"{sport.title()} • "
+                    f"{year} {season.title()} Olympics • "
+                    f"competitors {operator} {threshold}"
+                )
+
+                evidence_items.append(
+                    html.Div(
+                        [
+                            html.Div(
+                                "FILTER CONDITION",
+                                style={
+                                    "fontSize": "10px",
+                                    "fontWeight": "800",
+                                    "color": COLORS["muted"],
+                                },
+                            ),
+
+                            html.Div(
+                                condition_text,
+                                style={
+                                    "fontSize": "12px",
+                                    "fontWeight": "600",
+                                    "color": COLORS["text"],
+                                    "marginTop": "4px",
+                                },
+                            ),
+                        ],
+                        style={
+                            "marginBottom": "14px"
+                        },
+                    )
+                )
+
+                # Matching event count
+                
+                if matching_documents is not None:
+
+                    try:
+
+                        matching_records = (
+                            matching_documents
+                            .to_dict(
+                                orient="records"
+                            )
+                        )
+
+                    except Exception:
+
+                        matching_records = []
+
+                else:
+
+                    matching_records = []
+
+                match_count = len(
+                    matching_records
+                )
+
+                evidence_items.append(
+                    html.Div(
+                        [
+                            html.Div(
+                                "MATCHING EVENTS",
+                                style={
+                                    "fontSize": "10px",
+                                    "fontWeight": "800",
+                                    "color": COLORS["muted"],
+                                },
+                            ),
+
+                            html.Div(
+                                f"{match_count} events satisfy the condition",
+                                style={
+                                    "fontSize": "13px",
+                                    "fontWeight": "700",
+                                    "color": COLORS["success"],
+                                    "marginTop": "4px",
+                                },
+                            ),
+                        ],
+                        style={
+                            "marginBottom": "12px"
+                        },
+                    )
+                )
+
+                # Show matching events
+                
+                event_rows = []
+
+                for index, record in enumerate(
+                    matching_records,
+                    start=1
+                ):
+
+                    title = record.get(
+                        "title",
+                        "Unknown event"
+                    )
+
+                    competitors = record.get(
+                        "competitors"
+                    )
+
+                    if competitors is not None:
+
+                        competitor_text = (
+                            f"{competitors} competitors"
+                        )
+
+                    else:
+
+                        competitor_text = (
+                            "Competitor count unavailable"
+                        )
+
+                    event_rows.append(
+                        html.Div(
+                            [
+                                html.Div(
+                                    str(index),
+                                    style={
+                                        "width": "24px",
+                                        "height": "24px",
+                                        "borderRadius": "50%",
+                                        "backgroundColor": "#EEF2FF",
+                                        "color": COLORS["primary"],
+                                        "display": "flex",
+                                        "alignItems": "center",
+                                        "justifyContent": "center",
+                                        "fontSize": "10px",
+                                        "fontWeight": "800",
+                                        "flexShrink": "0",
+                                    },
+                                ),
+
+                                html.Div(
+                                    [
+                                        html.Div(
+                                            title,
+                                            style={
+                                                "fontSize": "12px",
+                                                "fontWeight": "650",
+                                                "color": COLORS["text"],
+                                                "lineHeight": "1.4",
+                                            },
+                                        ),
+
+                                        html.Div(
+                                            competitor_text,
+                                            style={
+                                                "fontSize": "10px",
+                                                "color": COLORS["muted"],
+                                                "marginTop": "2px",
+                                            },
+                                        ),
+                                    ],
+                                    style={
+                                        "minWidth": "0",
+                                        "flex": "1",
+                                    },
+                                ),
+                            ],
+                            style={
+                                "display": "flex",
+                                "alignItems": "flex-start",
+                                "gap": "9px",
+                                "padding": "8px 0",
+                                "borderBottom": (
+                                    f"1px solid "
+                                    f"{COLORS['border']}"
+                                ),
+                            },
+                        )
+                    )
+
+                # Evidence list container
+                
+                if event_rows:
+
+                    evidence_items.append(
+                        html.Div(
+                            [
+                                html.Div(
+                                    "VERIFIED MATCHES",
+                                    style={
+                                        "fontSize": "10px",
+                                        "fontWeight": "800",
+                                        "color": COLORS["muted"],
+                                        "marginBottom": "4px",
+                                    },
+                                ),
+
+                                html.Div(
+                                    event_rows
+                                ),
+                            ]
+                        )
+                    )
+
+            # NORMAL HYBRID RAG EVIDENCE
+           
+            else:
+
+                evidence_items.append(
+                    html.Div(
+                        [
+                            html.Div(
+                                "RETRIEVAL METHOD",
+                                style={
+                                    "fontSize": "10px",
+                                    "fontWeight": "800",
+                                    "color": COLORS["muted"],
+                                },
+                            ),
+
+                            html.Div(
+                                method,
+                                style={
+                                    "fontSize": "13px",
+                                    "fontWeight": "700",
+                                    "color": COLORS["text"],
+                                    "marginTop": "3px",
+                                },
+                            ),
+                        ],
+                        style={
+                            "marginBottom": "14px"
+                        },
+                    )
+                )
+
+                evidence_count = len(
+                    rag_data.get(
+                        "expanded_context",
+                        []
+                    )
+                )
+
+                evidence_items.append(
+                    html.Div(
+                        f"{evidence_count} retrieved evidence units",
+                        style={
+                            "fontSize": "12px",
+                            "color": COLORS["muted"],
+                        },
+                    )
+                )
 
         elif final_pipeline == "GraphRAG":
 
@@ -2118,7 +2449,8 @@ def investigate(
 if __name__ == "__main__":
 
     app.run(
-        debug=True,
+        debug=False,
+        use_reloader=False,
         host="127.0.0.1",
         port=8050,
     )
