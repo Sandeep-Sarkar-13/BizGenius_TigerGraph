@@ -1,4 +1,4 @@
-# MENTAT (Multi-agent Evidence & Neural Thinking for Analysis & Truth) — Adaptive Agentic GraphRAG
+# MENTAT (Multi-agent Evidence & Neural Thinking for Analysis & Truth)
 
 ## 1. Overview
 
