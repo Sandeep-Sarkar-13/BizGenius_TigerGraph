@@ -1,0 +1,54 @@
+﻿qid,qtype,status,selected_pipeline,final_pipeline,latency_seconds,input_tokens,output_tokens,total_tokens,gemini_calls,answer
+eval-001,multi_hop,success,GraphRAG,GraphRAG,5.3062,587,24,1117,1,Li Ting and Sun Tiantian of China won the gold medal in the Women's doubles tennis event [E1].
+eval-002,lookup,success,RAG,RAG,7.346,28040,2,28327,1,29 nations
+eval-003,aggregation,success,RAG,RAG,13.671,36389,3,37952,1,4 cycling events
+eval-004,multi_hop,success,RAG,GraphRAG,5.5642,439,116,1042,1,"Mariya Grozdeva (representing Bulgaria) won the gold medal in the Women's 25 metre pistol event held at the Sydney International Shooting Centre on 22 September 2000 [E1].
+"
+eval-005,superlative,success,RAG,RAG,0.0091,25884,0,0,0,Sailing at the 2016 Summer Olympics – Men's 470 (52.0 competitors)
+eval-006,aggregation,success,RAG,RAG,4.7063,0,0,0,0,2
+eval-007,temporal,success,RAG,RAG,12.0189,13741,5,13927,1,Oleksandr Usyk
+eval-008,aggregation,success,RAG,RAG,3.0219,0,0,0,0,4
+eval-009,superlative,success,RAG,RAG,0.0043,0,0,0,0,Sailing at the 2004 Summer Olympics – Men's 470 (54.0 competitors)
+eval-010,lookup,success,RAG,RAG,3.0531,0,0,0,0,32
+eval-011,aggregation,success,GraphRAG,GraphRAG,3.0767,0,0,0,0,4
+eval-012,lookup,success,RAG,RAG,3.0848,0,0,0,0,32
+eval-013,aggregation,success,RAG,RAG,3.2538,0,0,0,0,6
+eval-014,multi_hop,success,GraphRAG,GraphRAG,4.7245,474,38,924,1,"Michaela Dorfmeister of Austria won the gold medal in the Women's downhill event held at San Sicario on February 15, 2006 [E1]."
+eval-015,lookup,success,RAG,RAG,8.1935,36501,3,36696,1,35 nations
+eval-016,lookup,success,RAG,RAG,8.474,41717,3,42091,1,22 nations
+eval-017,multi_hop,success,GraphRAG,GraphRAG,5.3063,444,144,1098,1,"Katherine Copeland and Sophie Hosking of Great Britain (GBR) won the gold medal in the Women's lightweight double sculls event held at Eton Dorney [E1, E2].
+"
+eval-018,multi_hop,success,GraphRAG,GraphRAG,6.9969,435,85,932,1,Sara Kolak won the gold medal in the Women's javelin throw held at the Olympic Stadium on 16–18 August 2016 [E1]. 
+eval-019,aggregation,success,RAG,GraphRAG,4.594,0,0,0,0,4
+eval-020,multi_hop,success,GraphRAG,Agentic GraphRAG,1.3665,0,0,0,0,Jin Jong-oh
+eval-021,temporal,success,RAG,RAG,4.0152,0,0,0,0,Ryan Murphy
+eval-022,lookup,success,RAG,RAG,3.1781,0,0,0,0,40
+eval-023,aggregation,success,RAG,RAG,3.1857,0,0,0,0,7
+eval-024,superlative,success,RAG,RAG,0.0035,0,0,0,0,Cross-country skiing at the 1998 Winter Olympics – Men's 10 kilometre classical (97.0 competitors)
+eval-025,superlative,success,RAG,RAG,0.0032,0,0,0,0,Rowing at the 2016 Summer Olympics – Women's eight (56.0 competitors)
+eval-026,lookup,success,RAG,RAG,3.1925,0,0,0,0,22
+eval-027,superlative,success,RAG,RAG,0.0029,0,0,0,0,Cycling at the 2012 Summer Olympics – Men's individual road race (144.0 competitors)
+eval-028,aggregation,success,RAG,GraphRAG,3.1691,0,0,0,0,0
+eval-029,aggregation,success,RAG,RAG,7.6762,12654,2,13518,1,3 events
+eval-030,superlative,success,RAG,RAG,0.0026,0,0,0,0,Alpine skiing at the 1994 Winter Olympics – Men's super-G (69.0 competitors)
+eval-031,temporal,success,RAG,RAG,11.2108,36079,5,36272,1,Kim Un-guk
+eval-032,multi_hop,success,GraphRAG,GraphRAG,5.3689,435,114,1022,1,"Zhou Yang (China) won the gold medal in the Women's 1500 metres short-track speed skating event held at the Pacific Coliseum on February 20, 2010 [E1]."
+eval-033,aggregation,success,RAG,Agentic GraphRAG,10.5906,39303,3,40548,1,10
+eval-034,temporal,success,RAG,RAG,4.4811,0,0,0,0,Artur Taymazov
+eval-035,superlative,success,RAG,RAG,0.0034,0,0,0,0,Rowing at the 2012 Summer Olympics – Women's eight (56.0 competitors)
+eval-036,aggregation,success,RAG,RAG,11.4216,33834,2,35372,1,3 events
+eval-037,superlative,success,RAG,RAG,0.0031,0,0,0,0,Sailing at the 1996 Summer Olympics – Men's 470 (72.0 competitors)
+eval-038,aggregation,success,GraphRAG,GraphRAG,3.1727,0,0,0,0,23
+eval-039,aggregation,success,RAG,RAG,3.2036,0,0,0,0,5
+eval-040,multi_hop,success,GraphRAG,GraphRAG,0.9694,0,0,0,0,Reuben Kosgei
+eval-041,aggregation,success,RAG,RAG,14.3082,46953,2,47964,1,1 event
+eval-042,temporal,success,RAG,RAG,8.7227,33468,5,33725,1,Dmitry Monakov
+eval-043,multi_hop,success,GraphRAG,GraphRAG,6.6869,451,133,1116,1,"Romania (Loredana Dinu, Simona Gherman, Simona Pop, and Ana Maria Popescu) won the gold medal in the Women's team épée event held at Carioca Arena 3 on 11 August 2016 [E1].
+"
+eval-044,temporal,success,RAG,RAG,4.561,0,0,0,0,Lydia Valentín
+eval-045,temporal,success,RAG,RAG,4.2766,0,0,0,0,Hannah Kearney
+eval-046,temporal,success,RAG,RAG,4.8773,0,0,0,0,Brahim Asloum
+eval-047,superlative,success,RAG,RAG,0.0118,0,0,0,0,Cycling at the 2004 Summer Olympics – Men's individual road race (144.0 competitors)
+eval-048,aggregation,success,GraphRAG,Agentic GraphRAG,4.1113,0,0,0,0,5
+eval-049,superlative,success,RAG,RAG,0.0135,0,0,0,0,Shooting at the 1988 Summer Olympics – Men's 50 metre rifle prone (55.0 competitors)
+eval-050,multi_hop,success,GraphRAG,GraphRAG,1.4998,236,101,1223,0,Usain Bolt
