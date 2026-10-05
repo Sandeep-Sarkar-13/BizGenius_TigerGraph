@@ -18,7 +18,15 @@ graph traversal and deeper investigation. MENTAT therefore treats
 reasoning as an adaptive resource and escalates the query only when the
 available evidence is insufficient to produce a reliable answer.
 
-## 2. RAG-v2: Hybrid Retrieval Foundation
+## 2. Deployment
+
+MENTAT is deployed on **Amazon Web Services (AWS)** and is accessible through the following live deployment:
+
+🔗 **Live Demo:** http://13.201.89.158/
+
+The deployed platform provides access to the MENTAT reasoning system and its adaptive retrieval, GraphRAG, and agentic investigation capabilities.
+
+## 3. RAG-v2: Hybrid Retrieval Foundation
 
 The **RAG-v2 pipeline** acts as the enhanced text-retrieval baseline. It
 combines semantic vector retrieval with BM25 lexical retrieval and uses
@@ -34,7 +42,7 @@ require complex relationships between multiple entities. It provides the
 foundation against which the additional capabilities of GraphRAG and
 MENTAT can be evaluated.
 
-## 3. GraphRAG: Structured Knowledge Reasoning
+## 4. GraphRAG: Structured Knowledge Reasoning
 
 The **GraphRAG pipeline** extends conventional retrieval by introducing
 structured relationships through a TigerGraph knowledge graph. The
@@ -54,7 +62,7 @@ underlying corpus. This separation is intentional: the knowledge graph
 establishes structural relationships, while the original documents
 remain the authoritative textual evidence layer.
 
-## 4. MENTAT: Agentic Reasoning Layer
+## 5. MENTAT: Agentic Reasoning Layer
 
 **MENTAT introduces the agentic layer on top of these retrieval
 capabilities.** Instead of following a fixed retrieval sequence, MENTAT
@@ -73,7 +81,7 @@ operations such as aggregation, event comparison, and structured
 filtering are delegated to dedicated tools, reducing unnecessary
 generative reasoning and making those operations more reproducible.
 
-## 5. Specialized Investigation Tools
+## 6. Specialized Investigation Tools
 
 MENTAT contains specialized capabilities for direct event lookup, event
 discovery, candidate investigation, temporal event resolution,
@@ -88,7 +96,7 @@ internally, MENTAT allows the planner to delegate factual retrieval,
 graph traversal, filtering, comparison, and source inspection to
 specialized components.
 
-## 6. Multi-Hop Reasoning
+## 7. Multi-Hop Reasoning
 
 One of the most important components is the **multi-hop event
 resolver**. Questions may describe an event indirectly through a
@@ -105,7 +113,7 @@ progressively connects different pieces of evidence until the original
 question can be grounded in a specific event and its corresponding
 source.
 
-## 7. Temporal Reasoning
+## 8. Temporal Reasoning
 
 Temporal reasoning is handled as a separate capability because Olympic
 questions frequently contain relative or historical references. A
@@ -118,7 +126,7 @@ retrieval and uses the resolved temporal context during subsequent
 investigation. This allows historical relationships and relative time
 references to become explicit constraints within the reasoning process.
 
-## 8. Evidence Evaluation
+## 9. Evidence Evaluation
 
 The **Evidence Evaluator** is the central control mechanism that
 distinguishes MENTAT from a simple tool-calling pipeline. After every
@@ -132,7 +140,7 @@ from the question have been satisfied. If the evidence is sufficient,
 the system stops and generates the answer; otherwise, it sends the
 current state back to the planner for another investigation step.
 
-## 9. Adaptive Re-Planning
+## 10. Adaptive Re-Planning
 
 MENTAT creates a closed-loop reasoning process in which the agent does
 not simply execute a predetermined chain of tools. The system can
@@ -145,7 +153,7 @@ questions where the correct sequence of operations cannot always be
 known in advance. The agent continuously evaluates the current evidence
 and determines whether another reasoning step is justified.
 
-## 10. Intelligent Query Routing
+## 11. Intelligent Query Routing
 
 MENTAT introduces a **question-specific routing strategy**. Lookup
 questions can be resolved through direct evidence retrieval, temporal
@@ -160,7 +168,7 @@ is central to MENTAT's adaptive design because unnecessary agentic
 reasoning increases computational cost without necessarily improving the
 answer.
 
-## 11. Knowledge Corpus
+## 12. Knowledge Corpus
 
 The underlying Olympic corpus contains approximately **2,951
 documents**, with each document containing identifiers, title, URL,
@@ -174,7 +182,7 @@ the comparison focuses on differences in retrieval, graph reasoning, and
 agentic orchestration rather than differences in the underlying
 information source.
 
-## 12. Three Levels of Reasoning
+## 13. Three Levels of Reasoning
 
 The three approaches represent three different levels of reasoning
 capability. **RAG-v2 focuses on retrieving the right textual evidence
@@ -188,7 +196,7 @@ textual retrieval, while a relational question may benefit from graph
 reasoning, and a difficult multi-hop question may require iterative
 agentic investigation.
 
-## 13. Benchmarking and Evaluation
+## 14. Benchmarking and Evaluation
 
 The benchmark evaluates the pipelines using common evaluation questions
 covering **lookup, temporal, multi-hop, aggregation, and superlative
@@ -211,7 +219,7 @@ project to examine whether additional graph and agentic reasoning
 provides measurable benefits relative to the increased computational and
 token cost.
 
-## 14. Core Contribution
+## 15. Core Contribution
 
 The key contribution of MENTAT is not simply the addition of an LLM
 agent to GraphRAG. Its contribution is the introduction of **adaptive
@@ -224,7 +232,7 @@ retrieved*, but also *whether more reasoning is actually necessary*.
 This makes the framework focused on evidence-driven reasoning rather
 than blindly applying the most complex architecture to every query.
 
-## 15. Overall System Philosophy
+## 16. Overall System Philosophy
 
 Ultimately, MENTAT represents a progression from **retrieval to
 structured reasoning to adaptive investigation**. RAG-v2 retrieves
