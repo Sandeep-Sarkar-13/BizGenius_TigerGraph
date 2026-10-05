@@ -20,9 +20,9 @@ available evidence is insufficient to produce a reliable answer.
 
 ## 2. Deployment
 
-MENTAT is deployed on **Amazon Web Services (AWS)** and is accessible through the following live deployment:
+MENTAT is deployed and is accessible through the following live deployment:
 
-🔗 **Live Demo:** http://13.201.89.158/
+🔗 **Live Demo:** https://www.cybertechsmart.com/
 
 The deployed platform provides access to the MENTAT reasoning system and its adaptive retrieval, GraphRAG, and agentic investigation capabilities.
 
